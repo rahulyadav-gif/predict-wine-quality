@@ -5,9 +5,7 @@ import {
     FlaskConical,
     RotateCcw,
     Sparkles,
-    CheckCircle2,
     AlertCircle,
-    Loader2,
     Info,
     Beaker,
     TrendingUp,
@@ -16,7 +14,6 @@ import {
 import {
     Tooltip,
     LinearProgress,
-    Skeleton,
     Chip,
     CircularProgress
 } from '@mui/material'
@@ -280,20 +277,9 @@ const AnimatedFormField: React.FC<{
     </motion.div>
 )
 
-// Loading skeleton for form
-const FormSkeleton: React.FC = () => (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {[...Array(11)].map((_, i) => (
-            <div key={i} className="space-y-2">
-                <Skeleton variant="text" width={120} height={20} sx={{ bgcolor: 'rgba(139, 38, 53, 0.3)' }} />
-                <Skeleton variant="rounded" height={48} sx={{ bgcolor: 'rgba(139, 38, 53, 0.2)', borderRadius: '12px' }} />
-            </div>
-        ))}
-    </div>
-)
 
 // Result display component
-const ResultDisplay: React.FC<{ result: PredictionResult; isLoading: boolean }> = ({ result, isLoading }) => {
+const ResultDisplay: React.FC<{ result: PredictionResult }> = ({ result }) => {
     const qualityInfo = getQualityInfo(result.quality)
 
     return (
@@ -762,7 +748,7 @@ export const PredictionForm: React.FC = () => {
                                                     </motion.p>
                                                 </motion.div>
                                             ) : result ? (
-                                                <ResultDisplay key="result" result={result} isLoading={isLoading} />
+                                                <ResultDisplay key="result" result={result} />
                                             ) : (
                                                 <motion.div
                                                     key="empty"
