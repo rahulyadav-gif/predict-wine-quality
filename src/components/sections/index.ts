@@ -1,0 +1,7 @@
+export { Hero } from './Hero'
+export { About } from './About'
+export { HowItWorks } from './HowItWorks'
+export { PredictionForm } from './PredictionForm'
+export { Features } from './Features'
+export { Contact } from './Contact'
+export { FAQ } from './FAQ'
