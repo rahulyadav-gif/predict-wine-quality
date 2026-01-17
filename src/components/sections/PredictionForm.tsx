@@ -225,57 +225,78 @@ const AnimatedFormField: React.FC<{
     value: string
     error?: string
     onChange: (value: string) => void
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+    setInputRef: (el: HTMLInputElement | null) => void
     index: number
     isInView: boolean
-}> = ({ field, value, error, onChange, index, isInView }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={isInView ? { opacity: 1, y: 0 } : {}}
-        transition={{ delay: 0.3 + index * 0.03 }}
-        whileHover={{ scale: 1.02 }}
-        className="group"
-    >
-        <div className="flex items-center gap-2 mb-2">
-            <label className="text-sm font-medium text-cream-200 group-hover:text-gold-400 transition-colors">
-                {field.label}
-            </label>
-            <Tooltip title={field.tooltip} arrow placement="top">
-                <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.2, rotate: 10 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="focus:outline-none"
-                >
-                    <Info className="w-3.5 h-3.5 text-cream-400/50 cursor-help hover:text-gold-400 transition-colors" />
-                </motion.button>
-            </Tooltip>
-            {field.unit && (
-                <Chip
-                    label={field.unit}
-                    size="small"
-                    sx={{
-                        height: '18px',
-                        fontSize: '0.65rem',
-                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
-                        color: 'rgba(212, 175, 55, 0.8)',
-                        border: '1px solid rgba(212, 175, 55, 0.2)',
-                    }}
-                />
-            )}
-        </div>
-        <Input
-            type="number"
-            step={field.step}
-            min={field.min}
-            max={field.max}
-            placeholder={field.placeholder}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            error={error}
-            className="w-full transition-all group-hover:border-gold-400/40"
-        />
-    </motion.div>
-)
+}> = ({ field, value, error, onChange, onKeyDown, setInputRef, index, isInView }) => {
+    // Handle input change - allow decimal values between 1-9
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const inputValue = e.target.value
+
+        // Allow empty value (for clearing)
+        if (inputValue === '') {
+            onChange('')
+            return
+        }
+
+        // Allow numbers and decimal point for values like 2.2, 1.3, etc.
+        // Pattern: optional digits, optional decimal, optional more digits
+        if (/^[0-9]*\.?[0-9]*$/.test(inputValue)) {
+            onChange(inputValue)
+        }
+    }
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.3 + index * 0.03 }}
+            whileHover={{ scale: 1.02 }}
+            className="group"
+        >
+            <div className="flex items-center gap-2 mb-2">
+                <label className="text-sm font-medium text-cream-200 group-hover:text-gold-400 transition-colors">
+                    {field.label}
+                </label>
+                <Tooltip title={field.tooltip} arrow placement="top">
+                    <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.2, rotate: 10 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="focus:outline-none"
+                    >
+                        <Info className="w-3.5 h-3.5 text-cream-400/50 cursor-help hover:text-gold-400 transition-colors" />
+                    </motion.button>
+                </Tooltip>
+                {field.unit && (
+                    <Chip
+                        label={field.unit}
+                        size="small"
+                        sx={{
+                            height: '18px',
+                            fontSize: '0.65rem',
+                            backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                            color: 'rgba(212, 175, 55, 0.8)',
+                            border: '1px solid rgba(212, 175, 55, 0.2)',
+                        }}
+                    />
+                )}
+            </div>
+            <Input
+                ref={setInputRef}
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 1-9"
+                value={value}
+                onChange={handleInputChange}
+                onKeyDown={onKeyDown}
+                error={error}
+                className="w-full transition-all group-hover:border-gold-400/40 text-center text-lg font-semibold"
+            />
+        </motion.div>
+    )
+}
 
 
 // Result display component
@@ -413,6 +434,28 @@ export const PredictionForm: React.FC = () => {
     const containerRef = useRef(null)
     const isInView = useInView(containerRef, { once: true, margin: '-100px' })
 
+    // Create refs for all input fields
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+    // Handle Enter key to move to next input (only when current input is filled)
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const currentField = formFields[index]
+            const currentValue = formData[currentField.name]
+
+            // Only move to next input if current field has a value
+            if (currentValue && currentValue.trim() !== '') {
+                if (index < formFields.length - 1) {
+                    inputRefs.current[index + 1]?.focus()
+                } else {
+                    // If last input, blur the current input
+                    inputRefs.current[index]?.blur()
+                }
+            }
+        }
+    }
+
     const handleInputChange = (name: keyof WineFormData, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
@@ -432,11 +475,9 @@ export const PredictionForm: React.FC = () => {
                 isValid = false
             } else {
                 const numValue = parseFloat(value)
-                if (isNaN(numValue)) {
-                    newErrors[field.name] = 'Invalid number'
-                    isValid = false
-                } else if (numValue < field.min || numValue > field.max) {
-                    newErrors[field.name] = `${field.min}-${field.max}`
+                // Check for valid number between 1 and 9 (inclusive, decimals allowed)
+                if (isNaN(numValue) || numValue < 1 || numValue > 9) {
+                    newErrors[field.name] = 'Enter 1-9'
                     isValid = false
                 }
             }
@@ -445,7 +486,7 @@ export const PredictionForm: React.FC = () => {
         setErrors(newErrors)
 
         if (!isValid) {
-            showToast('warning', 'Please fill in all fields correctly', 'Validation Error')
+            showToast('warning', 'Please enter values between 1-9 in all fields', 'Validation Error')
         }
 
         return isValid
@@ -627,6 +668,8 @@ export const PredictionForm: React.FC = () => {
                                                     value={formData[field.name]}
                                                     error={errors[field.name]}
                                                     onChange={(value) => handleInputChange(field.name, value)}
+                                                    onKeyDown={(e) => handleKeyDown(e, index)}
+                                                    setInputRef={(el) => { inputRefs.current[index] = el }}
                                                     index={index}
                                                     isInView={isInView}
                                                 />
